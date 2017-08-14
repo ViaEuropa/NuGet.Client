@@ -1,8 +1,9 @@
-// Copyright (c) .NET Foundation. All rights reserved.
+﻿// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -1227,13 +1228,12 @@ namespace NuGet.CommandLine.Test
         public void InstallCommand_DependencyResolution()
         {
             var nugetexe = Util.GetNuGetExePath();
-
             // Test variations
             // dependencyVersion, requested version, expected version
             string[,] variations =
             {
                 {null,           null,  "1.1.0" },
-                {"Lowest",       "1.2", "1.2.0" },
+                {"Lowest",       "1.1", "1.1.0" },
                 {"Highest",      null,  "2.0.0" },
                 {"HighestMinor", "1.1", "1.2.0" },
                 {"HighestPatch", "1.1", "1.1.1" }
@@ -1286,6 +1286,7 @@ namespace NuGet.CommandLine.Test
                             CultureInfo.InvariantCulture,
                             "install testPackage -OutputDirectory {0} -Source {1} -DependencyVersion {2}", outputDirectory, source, variations[i, 0]);
                     }
+
                     var r = CommandRunner.Run(
                         nugetexe,
                         Directory.GetCurrentDirectory(),
