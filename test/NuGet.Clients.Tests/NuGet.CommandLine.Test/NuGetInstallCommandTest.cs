@@ -1232,9 +1232,10 @@ namespace NuGet.CommandLine.Test
             // dependencyVersion, requested version, expected version
             string[,] variations =
             {
+                {null,           null,  "1.1.0" },
                 {"Lowest",       "1.1", "1.1.0" },
                 {"Highest",      "2.0",  "2.0.0" },
-                {"HighestMinor", "1.1", "1.2.0" },
+                {"HighestMinor", "1.2", "1.2.0" },
                 {"HighestPatch", "1.1", "1.1.1" }
             };
 
