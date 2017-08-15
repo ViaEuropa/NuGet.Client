@@ -1137,11 +1137,11 @@ namespace NuGet.CommandLine.Test
                     waitForExit: true);
 
                 // Assert
-                Assert.Equal(0, r.Item1);
-
+                Assert.Equal(0, r.ExitCode);
+                
                 // verify nuget grabs the earliest by default
-                var depPackageFile = outputDirectory + @"\depPackage." + expectedVersion + @"\depPackage." + expectedVersion + ".nupkg";
-                Assert.True(File.Exists(depPackageFile));
+                var depPackageFile = outputDirectory + @"\\depPackage." + expectedVersion + @"\\depPackage." + expectedVersion + ".nupkg";
+                Assert.True(File.Exists(depPackageFile), $"File '{depPackageFile}' not found.");
             }
         }
 
