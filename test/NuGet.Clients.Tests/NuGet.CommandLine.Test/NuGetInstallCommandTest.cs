@@ -7,6 +7,7 @@ using System.Globalization;
 using System.IO;
 using System.Net;
 using System.Threading.Tasks;
+using NuGet.Common;
 using NuGet.Test.Utility;
 using Xunit;
 
@@ -1138,9 +1139,16 @@ namespace NuGet.CommandLine.Test
 
                 // Assert
                 Assert.Equal(0, r.ExitCode);
-                
+
+                var pathSeparator = @"\";
+
+                if (RuntimeEnvironmentHelper.IsMono)
+                {
+                    pathSeparator = @"\\\";
+                }
+
                 // verify nuget grabs the earliest by default
-                var depPackageFile = outputDirectory + @"\\depPackage." + expectedVersion + @"\\depPackage." + expectedVersion + ".nupkg";
+                var depPackageFile = outputDirectory + $@"{pathSeparator}depPackage." + expectedVersion + $@"{pathSeparator}depPackage." + expectedVersion + ".nupkg";
                 Assert.True(File.Exists(depPackageFile), $"File '{depPackageFile}' not found.");
             }
         }
