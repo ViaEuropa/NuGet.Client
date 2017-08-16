@@ -1142,13 +1142,14 @@ namespace NuGet.CommandLine.Test
 
                 var pathSeparator = @"\";
 
-                if (RuntimeEnvironmentHelper.IsMono)
-                {
-                    pathSeparator = @"\\\";
-                }
-
                 // verify nuget grabs the earliest by default
                 var depPackageFile = outputDirectory + $@"{pathSeparator}depPackage." + expectedVersion + $@"{pathSeparator}depPackage." + expectedVersion + ".nupkg";
+
+                if (RuntimeEnvironmentHelper.IsMono)
+                {
+                    depPackageFile =  NuGet.Common.PathUtility.GetPathWithForwardSlashes(depPackageFile);
+                }
+
                 Assert.True(File.Exists(depPackageFile), $"File '{depPackageFile}' not found.");
             }
         }
