@@ -10,6 +10,7 @@ using NuGet.Packaging;
 using NuGet.Packaging.Core;
 using NuGet.ProjectManagement.Projects;
 using NuGet.ProjectModel;
+using NuGet.Versioning;
 using System.Threading.Tasks;
 
 namespace NuGet.ProjectManagement
@@ -19,18 +20,32 @@ namespace NuGet.ProjectManagement
     /// </summary>
     public static class BuildIntegratedProjectUtility
     {
+        public static async Task<Dictionary<string, NuGetVersion>> GetProjectPackageDependenciesVersionLookupDictionaryAsync(BuildIntegratedNuGetProject project)
+        {
+            // If restore hasn't run this will return an empty list
+            var dependencies = await GetProjectPackageDependencies(project, false);
+            if (dependencies != null || dependencies.Any())
+            {
+                // If we are targeting multiple frameworks we should get the Min version to show (WIP: Add to spec and ask for feedback)
+                return dependencies
+                    .GroupBy(item => item.Id)
+                    .ToDictionary(x => x.Key, x => x.Min(y => y.Version));
+            }
+            return null;
+        }
+
         /// <summary>
-        /// Orders all package dependencies in a project.
+        /// Gets all package dependencies in a project wither sorted or not.
         /// Project must be restored.
         /// </summary>
-        public static async Task<IReadOnlyList<PackageIdentity>> GetOrderedProjectPackageDependencies(
-            BuildIntegratedNuGetProject buildIntegratedProject)
+        public static async Task<IReadOnlyList<PackageIdentity>> GetProjectPackageDependencies(
+            BuildIntegratedNuGetProject buildIntegratedProject, bool sorted)
         {
             var lockFile = await GetLockFileOrNull(buildIntegratedProject);
 
             if (lockFile != null)
             {
-                return GetOrderedLockFilePackageDependencies(lockFile);
+                return GetLockFilePackageDependencies(lockFile, sorted);
             }
 
             return new List<PackageIdentity>();
@@ -71,12 +86,55 @@ namespace NuGet.ProjectManagement
         /// <summary>
         /// Lock file dependencies - packages only
         /// </summary>
-        public static IReadOnlyList<PackageIdentity> GetOrderedLockFilePackageDependencies(LockFile lockFile)
+        public static IReadOnlyList<PackageIdentity> GetLockFilePackageDependencies(LockFile lockFile, bool sorted)
         {
-            return GetOrderedLockFileDependencies(lockFile)
+            IReadOnlyList<LibraryIdentity> dependencies;
+            if (sorted)
+            {
+                dependencies = GetOrderedLockFileDependencies(lockFile);
+            }
+            else
+            {
+                dependencies = GetLockFileDependencies(lockFile);
+            }
+
+            return dependencies
                 .Where(library => library.Type == LibraryType.Package)
                 .Select(library => new PackageIdentity(library.Name, library.Version))
                 .ToList();
+        }
+
+        /// <summary>
+        /// Get dependencies from the lock file
+        /// </summary>
+        /// <param name="lockFile"></param>
+        /// <returns></returns>
+        public static IReadOnlyList<LibraryIdentity> GetLockFileDependencies(LockFile lockFile)
+        {
+            var results = new List<LibraryIdentity>();
+            var typeMappings = new Dictionary<PackageDependencyInfo, LibraryIdentity>(PackageIdentity.Comparer);
+       
+            foreach (var target in lockFile.Targets)
+            {
+                foreach (var targetLibrary in target.Libraries)
+                {
+                    var identity = new PackageIdentity(targetLibrary.Name, targetLibrary.Version);
+                    var dependency = new PackageDependencyInfo(identity, targetLibrary.Dependencies);
+
+                    if (!typeMappings.ContainsKey(dependency))
+                    {
+                        var libraryIdentity = new LibraryIdentity(
+                            targetLibrary.Name,
+                            targetLibrary.Version,
+                            LibraryType.Parse(targetLibrary.Type));
+
+                        results.Add(libraryIdentity);
+                        typeMappings.Add(dependency, libraryIdentity);
+                    }
+                }
+            }
+
+            return results;
         }
 
         /// <summary>

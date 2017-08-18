@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -7,7 +7,11 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using NuGet.Packaging;
+using NuGet.Packaging.Core;
 using NuGet.ProjectManagement;
+using NuGet.ProjectManagement.Projects;
+using NuGet.Versioning;
 
 namespace NuGet.PackageManagement.VisualStudio
 {
@@ -37,11 +41,45 @@ namespace NuGet.PackageManagement.VisualStudio
 
         public bool ContainsId(string packageId) => _uniqueIds.Contains(packageId);
 
-        public static async Task<PackageCollection> FromProjectsAsync(IEnumerable<NuGetProject> projects, CancellationToken cancellationToken)
+        private static async Task<IEnumerable<PackageReference>> GetPackagesWithResolvedVersionIfAvailableAsync(NuGetProject project, Dictionary<string, NuGetVersion> dependencyResolvedVersionLookup, CancellationToken cancellationToken)
+        {
+            var packages = await project.GetInstalledPackagesAsync(cancellationToken);
+
+            // Only resolve versions if project is build integrated and restore has run
+            if (project is BuildIntegratedNuGetProject && dependencyResolvedVersionLookup != null && dependencyResolvedVersionLookup.Any())
+            {
+                // We need to update the direct dependencies with the version they actually resolved to
+                // when project ran restore.
+
+                var resolvedPackages = new List<PackageReference>();
+                //  Update the identity of the dependencies to use the actual resolved version
+                foreach (var package in packages)
+                {
+                    // Update the dependency identity to the actual target dependency version
+                    var identity = new PackageIdentity(package.PackageIdentity.Id, dependencyResolvedVersionLookup[package.PackageIdentity.Id]);
+                    resolvedPackages.Add(PackageReference.CloneWithNewIdentity(package, identity));
+                }
+                return resolvedPackages;
+            }
+            // If restore hasn't run then fallback to data from package references
+            return packages;
+        }
+
+        private static Dictionary<string, NuGetVersion> TryGetProjectDependencyLookup(Dictionary<string, Dictionary<string, NuGetVersion>> dependencyVersionLookup, NuGetProject project)
+        {
+            if (dependencyVersionLookup != null && dependencyVersionLookup.Any())
+            {
+                return dependencyVersionLookup[NuGetProject.GetUniqueNameOrName(project)];
+            }
+            return null;
+        }
+
+        public static async Task<PackageCollection> FromProjectsAsync(IEnumerable<NuGetProject> projects, Dictionary<string, Dictionary<string, NuGetVersion>> dependencyVersionLookup, CancellationToken cancellationToken)
         {
             // Read package references from all projects.
             var tasks = projects
-                .Select(project => project.GetInstalledPackagesAsync(cancellationToken));
+                .Select(project => GetPackagesWithResolvedVersionIfAvailableAsync(project, TryGetProjectDependencyLookup(dependencyVersionLookup, project), cancellationToken));
+
             var packageReferences = await Task.WhenAll(tasks);
 
             // Group all package references for an id/version into a single item.

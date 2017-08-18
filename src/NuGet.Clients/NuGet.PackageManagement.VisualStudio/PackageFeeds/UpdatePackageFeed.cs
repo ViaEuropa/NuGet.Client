@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -119,19 +119,19 @@ namespace NuGet.PackageManagement.VisualStudio
 
             // Traverse all projects and determine packages with updates
             var packagesWithUpdates = new List<IPackageSearchMetadata>();
-            foreach(var project in _projects)
-            {
-                var installed = await project.GetInstalledPackagesAsync(cancellationToken);
-                foreach (var installedPackage in installed)
+            //foreach(var project in _projects)
+            //{
+                //var installed = await project.GetInstalledPackagesAsync(cancellationToken);
+                foreach (var installedPackage in _installedPackages)
                 {
-                    var installedVersion = installedPackage.PackageIdentity.Version;
-                    var allowedVersions = installedPackage.AllowedVersions ?? VersionRange.All;
+                    var installedVersion = installedPackage.Version;
+                    var allowedVersions = /*installedPackage.AllowedVersions ??*/ VersionRange.All;
 
                     // filter packages based on current package identity
                     var allPackages = prefetchedPackages
                         .Where(p => StringComparer.OrdinalIgnoreCase.Equals(
                             p.Identity.Id,
-                            installedPackage.PackageIdentity.Id))
+                            installedPackage.Id))
                         .ToArray();
 
                     // and allowed versions
@@ -149,7 +149,7 @@ namespace NuGet.PackageManagement.VisualStudio
                         packagesWithUpdates.Add(highest.WithVersions(ToVersionInfo(allPackages)));
                     }
                 }
-            }
+            //}
 
             // select the earliest package update candidates
             var uniquePackageIds = packagesWithUpdates

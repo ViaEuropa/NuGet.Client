@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -17,8 +17,10 @@ using Microsoft.VisualStudio.Threading;
 using NuGet.PackageManagement.VisualStudio;
 using NuGet.Packaging.Core;
 using NuGet.ProjectManagement;
+using NuGet.ProjectManagement.Projects;
 using NuGet.Protocol.Core.Types;
 using NuGet.Resolver;
+using NuGet.Versioning;
 using NuGet.VisualStudio;
 using Resx = NuGet.PackageManagement.UI;
 using VSThreadHelper = Microsoft.VisualStudio.Shell.ThreadHelper;
@@ -52,6 +54,7 @@ namespace NuGet.PackageManagement.UI
         private readonly Dispatcher _uiDispatcher;
 
         private bool _missingPackageStatus;
+        private Dictionary<string, Dictionary<string, NuGetVersion>> _projectDependencyVersionLookup;
 
         private readonly INuGetUILogger _uiLogger;
 
@@ -160,6 +163,26 @@ namespace NuGet.PackageManagement.UI
             }
 
             _missingPackageStatus = false;
+
+            // Read assets file and get the lookup dictionary
+            NuGetUIThreadHelper.JoinableTaskFactory.RunAsync(async () =>
+            {
+                _projectDependencyVersionLookup = await GetDependencyLookupDictionaryForProjectsAsync(Model.Context.Projects);
+            });
+        }
+
+        private async Task<Dictionary<string, Dictionary<string, NuGetVersion>>> GetDependencyLookupDictionaryForProjectsAsync(IEnumerable<NuGetProject> projects)
+        {
+            var lookupDependencyVersion = new Dictionary<string, Dictionary<string, NuGetVersion>>();
+            foreach (var project in projects)
+            {
+                if (project is BuildIntegratedNuGetProject)
+                {
+                    lookupDependencyVersion[NuGetProject.GetUniqueNameOrName(project)] =
+                        await BuildIntegratedProjectUtility.GetProjectPackageDependenciesVersionLookupDictionaryAsync(project as BuildIntegratedNuGetProject);
+                }
+            }
+            return lookupDependencyVersion;
         }
 
         private void SolutionManager_ProjectsUpdated(object sender, NuGetProjectEventArgs e)
@@ -579,7 +602,7 @@ namespace NuGet.PackageManagement.UI
             {
                 await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
-                var loadContext = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context);
+                var loadContext = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context, _projectDependencyVersionLookup);
 
                 if (useCache)
                 {
@@ -617,6 +640,7 @@ namespace NuGet.PackageManagement.UI
                         _topPanel._labelUpgradeAvailable.Count = 0;
 
                         var searchResult = await searchResultTask;
+
                         Model.CachedUpdates = new PackageSearchMetadataCache
                         {
                             Packages = searchResult.Items,
@@ -640,7 +664,7 @@ namespace NuGet.PackageManagement.UI
                 await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
 
                 _topPanel._labelUpgradeAvailable.Count = 0;
-                var loadContext = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context);
+                var loadContext = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context, _projectDependencyVersionLookup);
                 var packageFeed = await CreatePackageFeedAsync(loadContext, ItemFilter.UpdatesAvailable, _uiLogger);
                 var loader = new PackageItemLoader(
                     loadContext, packageFeed, includePrerelease: IncludePrerelease);
@@ -666,7 +690,7 @@ namespace NuGet.PackageManagement.UI
             {
                 await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                 _topPanel._labelConsolidate.Count = 0;
-                var loadContext = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context);
+                var loadContext = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context, null);
                 var packageFeed = await CreatePackageFeedAsync(loadContext, ItemFilter.Consolidate, _uiLogger);
                 var loader = new PackageItemLoader(
                     loadContext, packageFeed, includePrerelease: IncludePrerelease);
@@ -705,7 +729,7 @@ namespace NuGet.PackageManagement.UI
 
                 _packageDetail.ScrollToHome();
 
-                var context = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context);
+                var context = new PackageLoadContext(ActiveSources, Model.IsSolution, Model.Context, _projectDependencyVersionLookup);
                 var metadataProvider = CreatePackageMetadataProvider(context);
                 await _detailModel.LoadPackageMetadaAsync(metadataProvider, CancellationToken.None);
             }
@@ -811,7 +835,7 @@ namespace NuGet.PackageManagement.UI
                 {
                     await NuGetUIThreadHelper.JoinableTaskFactory.SwitchToMainThreadAsync();
                     var installedPackages = await PackageCollection.FromProjectsAsync(Model.Context.Projects,
-                        CancellationToken.None);
+                        null, CancellationToken.None);
                     _packageList.UpdatePackageStatus(installedPackages.ToArray());
                 });
 
@@ -826,7 +850,7 @@ namespace NuGet.PackageManagement.UI
         private static PackageIdentity[] GetInstalledPackages(IEnumerable<NuGetProject> projects)
         {
             var installedPackages = NuGetUIThreadHelper.JoinableTaskFactory.Run(
-                () => PackageCollection.FromProjectsAsync(projects, CancellationToken.None));
+                () => PackageCollection.FromProjectsAsync(projects, null, CancellationToken.None));
 
             return installedPackages.ToArray();
         }

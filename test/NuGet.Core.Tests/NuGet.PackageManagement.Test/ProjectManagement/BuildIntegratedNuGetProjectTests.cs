@@ -147,7 +147,7 @@ namespace ProjectManagement.Test
             target.Libraries.Add(targetB);
 
             // Act
-            var ordered = BuildIntegratedProjectUtility.GetOrderedLockFilePackageDependencies(lockFile)
+            var ordered = BuildIntegratedProjectUtility.GetLockFilePackageDependencies(lockFile, true)
                 .OrderBy(lib => lib.Id, StringComparer.Ordinal)
                 .ToList();
 

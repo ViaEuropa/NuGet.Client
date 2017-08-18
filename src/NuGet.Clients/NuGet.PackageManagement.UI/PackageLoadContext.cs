@@ -1,4 +1,4 @@
-﻿// Copyright (c) .NET Foundation. All rights reserved.
+// Copyright (c) .NET Foundation. All rights reserved.
 // Licensed under the Apache License, Version 2.0. See License.txt in the project root for license information.
 
 using System;
@@ -10,6 +10,7 @@ using NuGet.Frameworks;
 using NuGet.PackageManagement.VisualStudio;
 using NuGet.ProjectManagement;
 using NuGet.Protocol.Core.Types;
+using NuGet.Versioning;
 using NuGet.VisualStudio;
 
 namespace NuGet.PackageManagement.UI
@@ -34,7 +35,8 @@ namespace NuGet.PackageManagement.UI
         public PackageLoadContext(
             IEnumerable<SourceRepository> sourceRepositories,
             bool isSolution,
-            INuGetUIContext uiContext)
+            INuGetUIContext uiContext,
+            Dictionary<string, Dictionary<string, NuGetVersion>> dependencyVersionLookup)
         {
             SourceRepositories = sourceRepositories;
             IsSolution = isSolution;
@@ -42,7 +44,7 @@ namespace NuGet.PackageManagement.UI
             Projects = (uiContext.Projects ?? Enumerable.Empty<NuGetProject>()).ToArray();
             PackageManagerProviders = uiContext.PackageManagerProviders;
 
-            _installedPackagesTask = PackageCollection.FromProjectsAsync(Projects, CancellationToken.None);
+            _installedPackagesTask = PackageCollection.FromProjectsAsync(Projects, dependencyVersionLookup, CancellationToken.None);
         }
 
         public Task<PackageCollection> GetInstalledPackagesAsync() =>_installedPackagesTask;

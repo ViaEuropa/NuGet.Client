@@ -16,6 +16,16 @@ namespace NuGet.Packaging
     [DebuggerDisplay("{PackageIdentity} {TargetFramework}")]
     public class PackageReference
     {
+        public static PackageReference CloneWithNewIdentity(PackageReference packageReference, PackageIdentity identity)
+        {
+            return new PackageReference(identity,
+                packageReference.TargetFramework,
+                packageReference.IsUserInstalled,
+                packageReference.IsDevelopmentDependency,
+                packageReference.RequireReinstallation,
+                packageReference.AllowedVersions);
+        }
+
         /// <summary>
         /// Creates a new packages config entry
         /// </summary>

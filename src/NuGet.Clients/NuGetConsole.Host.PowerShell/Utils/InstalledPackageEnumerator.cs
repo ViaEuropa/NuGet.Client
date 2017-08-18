@@ -324,7 +324,7 @@ namespace NuGetConsole.Host.PowerShell
                 fppr = new FallbackPackagePathResolver(pathContext);
             }
 
-            foreach (var package in BuildIntegratedProjectUtility.GetOrderedLockFilePackageDependencies(lockFile))
+            foreach (var package in BuildIntegratedProjectUtility.GetLockFilePackageDependencies(lockFile, true))
             {
                 if (!finishedPackages.Contains(package))
                 {
